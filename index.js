@@ -11,9 +11,15 @@ app.get("/", (req, res) => {
   res.send("Hello World!");
 });
 
-app.get("/hello",(req,res)=>{
-  res.send("Hello Route Requested!")
+app.post("/register",(req,res)=>{
+  const {name,password,number,email,rfid} = req.body;
+  
+  console.log("User Registered")
 })
+
+// app.get("/hello",(req,res)=>{
+//   res.send("Hello Route Requested!")
+// })
 
 app.listen(PORT, () => {
   console.log(`App Listening at PORT ${PORT} `);
