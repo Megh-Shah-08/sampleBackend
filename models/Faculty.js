@@ -1,5 +1,5 @@
 const mongoose = require("mongoose");
-
+const Record = require("./Record");
 const facultySchema = new mongoose.Schema({
   name: {
     type: String,
@@ -28,7 +28,15 @@ const facultySchema = new mongoose.Schema({
     type:String,
     required:true,
     unique:true
-  }
+  },
+  workingDuration:{
+    type:Number,
+    default:0 
+  },
+  records:[{
+    type:mongoose.Schema.Types.ObjectId,
+    ref:"Record",
+  }]
 });
 
 const Faculty = mongoose.model("Faculty",facultySchema)
