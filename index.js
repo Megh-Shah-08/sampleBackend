@@ -10,10 +10,11 @@ const nodemailer = require("nodemailer");
 
 // Create a transport object using your email provider details
 const transporter = nodemailer.createTransport({
-  service: "gmail", // Or use another email service
+  host:"smtp-relay.brevo.com",
+  port:587,
   auth: {
-    user: "shahmegh810@gmail.com", // Your email
-    pass: "MEGH@082007", // Your email password or app-specific password
+    user: "851ccd001@smtp-brevo.com", // Your email
+    pass: "3NqdA2V0yr5LxtF7", // Your email password or app-specific password
   },
 });
 
@@ -56,7 +57,7 @@ app.post("/register", async (req, res) => {
       text: mailBody, // Email body
     };
 
-    transporter.sendMail(mailOptions, (error, info) => {
+    await transporter.sendMail(mailOptions, (error, info) => {
       if (error) {
         return res.status(500).send("Error occurred: " + error.message);
       }
