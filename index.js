@@ -3,9 +3,19 @@ const app = express();
 const cors = require("cors");
 const connectToDB = require("./db");
 require("dotenv").config();
-const PORT = process.env.PORT||3000;
+const PORT = process.env.PORT || 3000;
 const Faculty = require("./models/Faculty");
 const Record = require("./models/Record");
+const nodemailer = require("nodemailer");
+
+// Create a transport object using your email provider details
+const transporter = nodemailer.createTransport({
+  service: "gmail", // Or use another email service
+  auth: {
+    user: "shahmegh810@gmail.com", // Your email
+    pass: "MEGH@082007", // Your email password or app-specific password
+  },
+});
 
 const { hashPassword } = require("./utils");
 app.use(express.json());
@@ -37,6 +47,21 @@ app.post("/register", async (req, res) => {
     });
     savedDoc = await FacultyDoc.save();
     console.log(`Faculty Registered : ${savedDoc}`);
+
+    mailBody = `Dear ${savedDoc.name} , Thanks for registering at the Fcaulty Work Hour Tracker`;
+    const mailOptions = {
+      from: "shahmegh810@gmail.com", // Your email
+      to: savedDoc.email, // Recipient's email
+      subject: "FACULTY WORK HOUR TRACKER", // Email subject
+      text: mailBody, // Email body
+    };
+
+    transporter.sendMail(mailOptions, (error, info) => {
+      if (error) {
+        return res.status(500).send("Error occurred: " + error.message);
+      }
+      console.log("Email sent: " + info.response);
+    });
     return res.status(201).json({ message: "Success", faculty: savedDoc });
   } catch (error) {
     console.log(`Error in registering the faculty : ${error}`);
@@ -56,10 +81,10 @@ app.post("/scan", async (req, res) => {
   }
   try {
     const lastRecord = await Record.findOne({ rfid })
-      .sort({ timestamp: -1,_id:-1 })
+      .sort({ timestamp: -1, _id: -1 })
       .limit(1);
 
-    console.log("Last record is : ",lastRecord);
+    console.log("Last record is : ", lastRecord);
     let recordType;
     if (!lastRecord) {
       recordType = "check-in";
@@ -68,13 +93,31 @@ app.post("/scan", async (req, res) => {
         lastRecord.recordType === "check-in" ? "check-out" : "check-in";
     }
 
-    if(recordType=="check-out" && lastRecord.recordType=="check-in"){
+    if (recordType == "check-out" && lastRecord.recordType == "check-in") {
       let duration = Date.now() - lastRecord.timestamp;
+      let durationInHours = duration / (1000 * 60 * 60);
       // console.log(`Duration : ${duration}`);
-      user.workingDuration+=duration;
-      let durationLeft = (40*60*60*1000) - user.workingDuration; //pending hours
-      let durationLeftInHours = durationLeft/(1000*60*60);
-      console.log(`Duration Left : ${durationLeftInHours}`)
+      user.workingDuration += duration;
+      let durationLeft = 40 * 60 * 60 * 1000 - user.workingDuration; //pending hours
+      let durationLeftInHours = durationLeft / (1000 * 60 * 60);
+      console.log(`Duration Left : ${durationLeftInHours}`);
+
+      mailBody = `Dear ${user.name} , check-in today : ${
+        lastRecord.timestamp
+      } , check-out today: ${Date.now()} , today's duration : ${durationInHours} , week's working hour left : ${durationLeftInHours} `;
+      const mailOptions = {
+        from: "shahmegh810@gmail.com", // Your email
+        to: user.email, // Recipient's email
+        subject: "FACULTY WORK HOUR TRACKER", // Email subject
+        text: mailBody, // Email body
+      };
+
+      transporter.sendMail(mailOptions, (error, info) => {
+        if (error) {
+          return res.status(500).send("Error occurred: " + error.message);
+        }
+        res.status(200).send("Email sent: " + info.response);
+      });
     }
     const newRecord = new Record({
       rfid,
@@ -93,15 +136,17 @@ app.post("/scan", async (req, res) => {
   }
 });
 
-app.post("/deleteAll",async(req,res)=>{
-  try{
+app.post("/deleteAll", async (req, res) => {
+  try {
     await Record.deleteMany({});
-    await Faculty.updateMany({},{$set:{records:[]}});
-    return res.status(500).json({ message: "All RFID records deleted succesfully! "});
-  }catch(e){
+    await Faculty.updateMany({}, { $set: { records: [] } });
+    return res
+      .status(500)
+      .json({ message: "All RFID records deleted succesfully! " });
+  } catch (e) {
     return res.status(500).json({ message: "Internal Server Error", error: e });
-  }  
-})
+  }
+});
 
 app.get("/hello", (req, res) => {
   res.send("Hello Route Requested!");
