@@ -7,14 +7,13 @@ const PORT = process.env.PORT || 3000;
 const Faculty = require("./models/Faculty");
 const Record = require("./models/Record");
 const nodemailer = require("nodemailer");
-
+const cron = require("node-cron");
 // Create a transport object using your email provider details
 const transporter = nodemailer.createTransport({
-  host:"smtp-relay.brevo.com",
-  port:587,
+  service: "gmail",
   auth: {
-    user: "851ccd001@smtp-brevo.com", // Your email
-    pass: "3NqdA2V0yr5LxtF7", // Your email password or app-specific password
+    user: "shahmegh810@gmail.com", // Your email
+    pass: "rqaawvnrvkhzdoha", // Your email password or app-specific password
   },
 });
 
@@ -49,12 +48,20 @@ app.post("/register", async (req, res) => {
     savedDoc = await FacultyDoc.save();
     console.log(`Faculty Registered : ${savedDoc}`);
 
-    mailBody = `Dear ${savedDoc.name} , Thanks for registering at the Fcaulty Work Hour Tracker`;
+    mailBody = `
+    <h4>Dear ${savedDoc.name},</h4>
+    <p>Thanks for registering at the Faculty Work Hour Tracker.</p><br>
+    <p>Your details are as given below : </p>
+    <p><b>Phone Number </b>: ${savedDoc.number} </p>
+    <p><b>Email ID </b>: ${savedDoc.email} </p>
+    <p><b>RFID </b>: ${savedDoc.rfid} </p>
+    <br>
+    <p>Regards,<br>Team SBMP</p>`;
     const mailOptions = {
       from: "shahmegh810@gmail.com", // Your email
       to: savedDoc.email, // Recipient's email
-      subject: "FACULTY WORK HOUR TRACKER", // Email subject
-      text: mailBody, // Email body
+      subject: "Registered for Faculty Work Hour Tracker!", // Email subject
+      html: mailBody, // Email body
     };
 
     await transporter.sendMail(mailOptions, (error, info) => {
@@ -64,9 +71,9 @@ app.post("/register", async (req, res) => {
       console.log("Email sent: " + info.response);
     });
     return res.status(201).json({ message: "Success", faculty: savedDoc });
-  } catch (error) {
-    console.log(`Error in registering the faculty : ${error}`);
-    return res.status(500).json({ message: "Internal Server Error" });
+  } catch (e) {
+    console.log(`Error in registering the faculty : ${e}`);
+    return res.status(500).json({ message: "Internal Server Error" ,error:e});
   }
 });
 
@@ -103,21 +110,30 @@ app.post("/scan", async (req, res) => {
       let durationLeftInHours = durationLeft / (1000 * 60 * 60);
       console.log(`Duration Left : ${durationLeftInHours}`);
 
-      mailBody = `Dear ${user.name} , check-in today : ${
-        lastRecord.timestamp
-      } , check-out today: ${Date.now()} , today's duration : ${durationInHours} , week's working hour left : ${durationLeftInHours} `;
+      let lastRecordTimestamp = new Date(lastRecord.timestamp);
+      let checkInTime = lastRecordTimestamp.toLocaleTimeString();
+      let currentRecordTimestamp = new Date(Date.now());
+      let checkOutTime = currentRecordTimestamp.toLocaleTimeString(); 
+      mailBody = `
+      <h4>Dear ${user.name}</h4>
+      <p><b>Check-In Today </b>: ${checkInTime}</p>
+      <p><b>Check-Out Today </b>: ${checkOutTime}<p>
+      <p><b>Today's Work Duration </b>: ${durationInHours.toFixed(7)} <p>
+      <p><b>Week's Working Hour Left </b>: ${durationLeftInHours.toFixed(7)} <p>
+      <br>
+      <p>Regards,<br>Team SBMP</p>`;
       const mailOptions = {
         from: "shahmegh810@gmail.com", // Your email
         to: user.email, // Recipient's email
-        subject: "FACULTY WORK HOUR TRACKER", // Email subject
-        text: mailBody, // Email body
+        subject: "DAILY WORK HOUR REPORT", // Email subject
+        html: mailBody, // Email body
       };
 
       transporter.sendMail(mailOptions, (error, info) => {
         if (error) {
           return res.status(500).send("Error occurred: " + error.message);
         }
-        res.status(200).send("Email sent: " + info.response);
+        console.log("Email sent: " + info.response);
       });
     }
     const newRecord = new Record({
@@ -152,6 +168,17 @@ app.post("/deleteAll", async (req, res) => {
 app.get("/hello", (req, res) => {
   res.send("Hello Route Requested!");
 });
+
+
+//This function schedules resetting of faculty's working duration to 0 on each monday midnight
+cron.schedule("0 0 * * 1",async()=>{
+  try{
+    await Faculty.updateMany({},{workingDuration:0});
+    console.log("Fcaulty working duration reset to zero!");
+  }catch(e){
+    console.log(`Error resetting working hours: ${e}`);
+  }
+})
 
 app.listen(PORT, () => {
   console.log(`App Listening at PORT ${PORT} 🚀`);
